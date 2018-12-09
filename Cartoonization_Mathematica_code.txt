@@ -1,0 +1,42 @@
+img = Import["frame.jpg"];
+{ltemp, atemp, btemp} = ColorSeparate[img, "LAB"];
+bImg = BilateralFilter[img, 2, 1];
+{l, a, b} = ColorSeparate[bImg, "LAB"];
+ldata = ImageData[l];
+q = 6;
+qnearest = {0, 0.2, 0.4, 0.6, 0.8, 1};
+expr = Nearest[qnearest, ldata[[600, 600]]];
+qnearestdata = ldata;
+{w, h} = ImageDimensions[l]
+For[i = 1, i <= h, i++,
+  For[j = 1, j <= w, j++,
+   qnearestdata[[i, j]] = Nearest[qnearest, ldata[[i, j]]][[1]]]];
+lgrad = GradientFilter[ltemp, 1];
+gradRange1 = 0;
+gradRange2 = 2;
+sharpRange1 = 0.3;
+sharpRange2 = 1.4;
+lumGradFunc =
+  ImageData[
+   lgrad *((sharpRange2 - sharpRange1)/(gradRange2 - gradRange1)) +
+    sharpRange1];
+quantizedImage =  
+  0.1* Tanh[lumGradFunc (ldata - qnearestdata)] + qnearestdata;
+qImg = Image[quantizedImage, ImageSize -> 300]
+res = ColorCombine[{qImg, a, b}, "LAB"]
+finalq = ColorConvert[res, "RGB"]
+imgE = ColorConvert[img, "Grayscale"];
+grayDat = ImageData[imgE];
+grad = GradientFilter[img, 2]
+tau = 0.998;
+k = 2;
+ap = 0.45;
+bp = 0.1;
+gradDat = ImageData[ImageAdjust[grad]];
+DOG = gradDat;
+For[i = 1, i <= h, i++,
+  For[j = 1, j <= w, j++, delta = Log[ap, gradDat[[i, j]]] + bp;
+   If[delta == Infinity, DOG[[i, j]] = 0,
+    DOG[[i, j]] = (1/Sqrt[2*Pi])*Abs[1 - (tau/k)]*(1/delta)]]];
+edgeDetected = ImageAdjust[Image[DOG, ImageSize -> 500]];
+cartoonizedImage = finalq - edgeDetected;
